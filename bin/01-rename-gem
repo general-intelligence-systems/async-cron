@@ -1,0 +1,167 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+
+# The template's current full gem name. Every hyphen is a directory boundary, so
+# async-job-adapter-active_job => lib/async/job/adapter/active_job.rb and module
+# Async::Job::Adapter::ActiveJob. This line is rewritten after a successful run.
+current_full = "async-gem_kit"
+
+def to_camel(snake)
+  snake.split("_").map(&:capitalize).join
+end
+
+# Build a nested `module A; module B; ...; <body>; end; end` block from a list of
+# CamelCase names. `body` lines are indented inside the innermost module.
+def nested_modules(camels, body = [])
+  unit = "  "
+  lines = camels.each_with_index.map { |c, i| "#{unit * i}module #{c}" }
+  body.each { |l| lines << (l.empty? ? "" : "#{unit * camels.length}#{l}") }
+  (camels.length - 1).downto(0) { |i| lines << "#{unit * i}end" }
+  lines.join("\n") + "\n"
+end
+
+# Parse --from flag (keep the hyphens -- they define the directory nesting).
+args = ARGV.dup
+if (idx = args.index("--from"))
+  current_full = args.delete_at(idx + 1)
+  args.delete_at(idx)
+  abort "ERROR: --from requires a gem name" if current_full.nil? || current_full.empty?
+end
+
+new_full = args[0]
+
+if new_full.nil? || new_full.empty?
+  print "Gem name (e.g. async-http or async-job-adapter-active_job): "
+  new_full = $stdin.gets&.chomp
+end
+
+abort "Usage: bin/01-rename-gem <gem-name> [--from <current-name>]" if new_full.nil? || new_full.empty?
+abort "ERROR: gem name must contain a hyphen (e.g. async-http)" unless new_full.include?("-")
+abort "ERROR: --from value must contain a hyphen" unless current_full.include?("-")
+abort "Already named #{new_full}, nothing to do" if new_full == current_full
+
+# Split on EVERY hyphen: each segment is a directory level; the last is the file.
+old_segs = current_full.split("-")
+new_segs = new_full.split("-")
+
+old_path = old_segs.join("/")          # async/gem_kit
+new_path = new_segs.join("/")          # async/http/protocol/http3
+new_last = new_segs[-1]                # http3
+new_camels = new_segs.map { |s| to_camel(s) }
+
+root = File.expand_path("..", __dir__)
+self_path = File.expand_path(__FILE__)
+
+# --- Regenerate the three structural files (module nesting depth is variable) ---
+
+old_version_rb = File.join(root, "lib", old_path, "version.rb")
+version = (File.exist?(old_version_rb) && File.read(old_version_rb)[/VERSION = "(.*)"/, 1]) || "0.1.1"
+
+# Remove the old entry file and version directory.
+FileUtils.rm_f(File.join(root, "lib", "#{old_path}.rb"))
+FileUtils.rm_rf(File.join(root, "lib", old_path))
+
+# Write the new entry file + version files at the nested path.
+new_dir = File.join(root, "lib", new_path)
+FileUtils.mkdir_p(new_dir)
+
+File.write(File.join(root, "lib", "#{new_path}.rb"), <<~RUBY)
+  # frozen_string_literal: true
+
+  require "async"
+
+  require_relative "#{new_last}/version"
+
+  #{nested_modules(new_camels).chomp}
+RUBY
+
+File.write(File.join(new_dir, "version.rb"), <<~RUBY)
+  # frozen_string_literal: true
+
+  #{nested_modules(new_camels, [%(VERSION = "#{version}")]).chomp}
+RUBY
+
+File.write(File.join(new_dir, "version.rb.erb"), <<~RUBY)
+  # frozen_string_literal: true
+
+  #{nested_modules(new_camels, ['VERSION = "<%= version %>"']).chomp}
+RUBY
+
+puts "  wrote lib/#{new_path}.rb"
+puts "  wrote lib/#{new_path}/version.rb (+ .erb)"
+
+# Prune empty ancestor directories left along the OLD path (e.g. lib/async).
+(old_segs.length - 1).downto(0) do |i|
+  dir = File.join(root, "lib", *old_segs[0, i + 1])
+  Dir.rmdir(dir) if File.directory?(dir) && (Dir.entries(dir) - %w[. ..]).empty?
+end
+
+# --- Rename the remaining top-level files ---
+
+moves = {
+  "#{current_full}.gemspec"               => "#{new_full}.gemspec",
+  "#{current_full}.gemspec.erb"           => "#{new_full}.gemspec.erb",
+  "exe/#{current_full}"                   => "exe/#{new_full}",
+  "test/#{old_segs.join('_')}_test.rb"    => "test/#{new_segs.join('_')}_test.rb",
+}
+
+moves.each do |old_rel, new_rel|
+  old_p = File.join(root, old_rel)
+  new_p = File.join(root, new_rel)
+  next unless File.exist?(old_p)
+  next if old_p == new_p
+
+  FileUtils.mv(old_p, new_p)
+  puts "  mv #{old_rel} -> #{new_rel}"
+end
+
+# --- Replace content in all files ---
+#
+# Compound forms only -- the structural files (with their variable-depth module
+# nesting) were regenerated above, so no bare-token gsubs are needed. CRITICAL:
+# there is no bare-lowercase "async" gsub; the lowercase namespace is only touched
+# when bound to "/" or "-", so `require "async"` / `add_dependency "async"` always
+# survive, even when the namespace itself changes.
+replacements = [
+  [old_segs.map { |s| to_camel(s) }.join("::"), new_camels.join("::")],  # 1: Async::GemKit
+  [old_path,                                    new_path],               # 2: async/gem_kit
+  [current_full,                                new_full],               # 3: async-gem_kit
+  [old_segs.map { |s| to_camel(s) }.join,       new_camels.join],        # 4: AsyncGemKit
+]
+
+excluded_dirs = ["/.git/", "/.gem/", "/.direnv/", "/.bundle/"]
+
+files = Dir.glob(File.join(root, "**/*"), File::FNM_DOTMATCH)
+  .reject { |f| File.directory?(f) }
+  .reject { |f| excluded_dirs.any? { |d| f.include?(d) } }
+  .reject { |f| File.basename(f) == "Gemfile.lock" }
+  .reject { |f| File.expand_path(f) == self_path } # handled separately below
+
+files.each do |path|
+  content =
+    begin
+      File.read(path)
+    rescue StandardError
+      next
+    end
+  next unless content.valid_encoding? # skip binary files
+
+  original = content.dup
+  replacements.each { |from, to| content.gsub!(from, to) }
+
+  if content != original
+    File.write(path, content)
+    puts "  updated #{path.sub("#{root}/", "")}"
+  end
+end
+
+# Update the stored placeholder name in this script (excluded from the pass above).
+script = File.read(self_path)
+script.sub!(/^current_full = ".*"$/, %(current_full = "#{new_full}"))
+File.write(self_path, script)
+puts "  updated #{File.basename(__FILE__)} (current_full = \"#{new_full}\")"
+
+puts "\nRenamed #{current_full} -> #{new_full} " \
+     "(#{old_segs.map { |s| to_camel(s) }.join('::')} -> #{new_camels.join('::')})"

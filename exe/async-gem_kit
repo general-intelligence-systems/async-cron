@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../lib/async/gem_kit"
+
+puts "hello from async-gem_kit"
