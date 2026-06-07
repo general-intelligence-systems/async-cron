@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
-require "async/gem_kit"
+require "async/cron"
 require "irb"
 
 IRB.start(__FILE__)

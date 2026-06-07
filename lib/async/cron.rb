@@ -2,9 +2,9 @@
 
 require "async"
 
-require_relative "gem_kit/version"
+require_relative "cron/version"
 
 module Async
-  module GemKit
+  module Cron
   end
 end

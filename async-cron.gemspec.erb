@@ -1,22 +1,22 @@
 # frozen_string_literal: true
 
-require_relative "lib/async/gem_kit/version"
+require_relative "lib/async/cron/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "async-gem_kit"
-  spec.version = Async::GemKit::VERSION
-  spec.authors = ["Nathan K"]
-  spec.email = ["nathankidd@hey.com"]
+  spec.name = "<%= gem_name %>"
+  spec.version = Async::Cron::VERSION
+  spec.authors = [<%= authors.map { |a| %("#{a}") }.join(", ") %>]
+  spec.email = [<%= emails.map { |e| %("#{e}") }.join(", ") %>]
 
-  spec.summary = "Async-native Ruby gem template"
+  spec.summary = "<%= summary %>"
 
   spec.description = <<~DESC
-    Clone the repo and run bin/rename-gem async-<name> to scaffold an async-native gem.
+    <%= description %>
   DESC
 
-  spec.homepage = "https://github.com/general-intelligence-systems/async-gem_kit"
-  spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.2.0"
+  spec.homepage = "<%= homepage %>"
+  spec.license = "<%= license %>"
+  spec.required_ruby_version = ">= <%= ruby_version %>"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage

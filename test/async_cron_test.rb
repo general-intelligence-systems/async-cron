@@ -2,8 +2,8 @@
 
 require "test_helper"
 
-class AsyncGemKitTest < Minitest::Test
+class AsyncCronTest < Minitest::Test
   def test_version
-    refute_nil Async::GemKit::VERSION
+    refute_nil Async::Cron::VERSION
   end
 end

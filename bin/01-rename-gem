@@ -6,7 +6,7 @@ require "fileutils"
 # The template's current full gem name. Every hyphen is a directory boundary, so
 # async-job-adapter-active_job => lib/async/job/adapter/active_job.rb and module
 # Async::Job::Adapter::ActiveJob. This line is rewritten after a successful run.
-current_full = "async-gem_kit"
+current_full = "async-cron"
 
 def to_camel(snake)
   snake.split("_").map(&:capitalize).join
