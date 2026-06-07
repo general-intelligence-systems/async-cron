@@ -21,10 +21,10 @@ require "async/cron"
 
 Async do
   Async::Cron.run do
-    every    "5s"               do puts "tick" end           # immediately, then every 5s
+    every    "5s"               do puts "tick" end            # immediately, then every 5s
     schedule "30s"              do puts "warmup done" end     # once, after 30s (-> in)
-    at       "2026-01-01 09:00" do puts "happy new year" end # once, at a time
-    cron     "0 9 * * 1-5"      do puts "weekday 9am" end    # wall-clock cron
+    at       "2026-01-01 09:00" do puts "happy new year" end  # once, at a time
+    cron     "0 9 * * 1-5"      do puts "weekday 9am" end     # wall-clock cron
   end
 end
 ```
