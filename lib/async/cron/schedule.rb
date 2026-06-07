@@ -20,18 +20,10 @@ module Async
         instance_eval(&block) if block
       end
 
-      def at(time, callable = nil, **opts, &block)   = add(AtJob.new(time, callable || block), opts)
-      def in(dur, callable = nil, **opts, &block)    = add(InJob.new(dur, callable || block), opts)
+      def at(time, callable = nil, **opts, &block)    = add(AtJob.new(time, callable || block), opts)
+      def after(dur, callable = nil, **opts, &block)  = add(AfterJob.new(dur, callable || block), opts)
       def every(spec, callable = nil, **opts, &block) = add(build_every(spec, callable || block), opts)
-      def cron(line, callable = nil, **opts, &block) = add(CronJob.new(line, callable || block), opts)
-
-      def schedule(arg, callable = nil, **opts, &block)
-        case Fugit.parse(arg)
-        when Fugit::Cron     then cron(arg, callable, **opts, &block)
-        when Fugit::Duration then self.in(arg, callable, **opts, &block)
-        else                      at(arg, callable, **opts, &block)
-        end
-      end
+      def cron(line, callable = nil, **opts, &block)  = add(CronJob.new(line, callable || block), opts)
 
       def unschedule(id) = @jobs.delete(id)
       def jobs           = @jobs.values

@@ -21,10 +21,10 @@ require "async/cron"
 
 Async do
   Async::Cron.loop do
-    every    "5s"               do puts "tick" end            # immediately, then every 5s
-    schedule "30s"              do puts "warmup done" end     # once, after 30s
-    at       "2026-01-01 09:00" do puts "happy new year" end  # once, at a time
-    cron     "0 9 * * 1-5"      do puts "weekday 9am" end     # wall-clock cron
+    every "5s"               do puts "tick" end            # immediately, then every 5s
+    after "30s"              do puts "warmup done" end     # once, after 30s
+    at    "2026-01-01 09:00" do puts "happy new year" end  # once, at a time
+    cron  "0 9 * * 1-5"      do puts "weekday 9am" end     # wall-clock cron
   end
 end
 ~~~
@@ -40,6 +40,6 @@ loop { Async::Cron.run(schedule); sleep 1 }
 
 ## Time Basis
 
-`in` and `every` are measured on a monotonic clock (`Async::Clock`), so they are
-immune to NTP/DST jumps. `at` and `cron` use wall-clock time via
+`after` and `every` are measured on a monotonic clock (`Async::Clock`), so they
+are immune to NTP/DST jumps. `at` and `cron` use wall-clock time via
 [`fugit`](https://github.com/floyon/fugit).

@@ -30,14 +30,14 @@ class ScheduleTest < Minitest::Test
     assert_kind_of Async::Cron::CronJob, job
   end
 
-  def test_schedule_dispatches_on_fugit_type
+  def test_dsl_builds_each_job_type
     schedule = Async::Cron::Schedule.new
-    schedule.schedule("0 9 * * *") { :noop } # cron
-    schedule.schedule("5s") { :noop }        # duration -> in
-    schedule.schedule("2999-01-01 12:00") { :noop } # time -> at
+    schedule.cron("0 9 * * *") { :noop }
+    schedule.after("5s") { :noop }
+    schedule.at("2999-01-01 12:00") { :noop }
 
     classes = schedule.jobs.map(&:class).sort_by(&:name)
-    assert_equal [Async::Cron::AtJob, Async::Cron::CronJob, Async::Cron::InJob], classes
+    assert_equal [Async::Cron::AfterJob, Async::Cron::AtJob, Async::Cron::CronJob], classes
   end
 
   def test_run_with_block_builds_schedule_and_fires_due_jobs
@@ -60,7 +60,7 @@ class ScheduleTest < Minitest::Test
   end
 
   def test_run_drops_finished_jobs
-    schedule = Async::Cron::Schedule.new { self.in("0s") { :noop } }
+    schedule = Async::Cron::Schedule.new { after("0s") { :noop } }
 
     Async { Async::Cron.run(schedule) }
 

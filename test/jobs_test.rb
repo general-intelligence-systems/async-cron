@@ -24,8 +24,8 @@ class JobsTest < Minitest::Test
     refute job.due?(wall: EtOrbi::EoTime.now, mono: 0.0)
   end
 
-  def test_in_job_delays_on_monotonic_clock
-    job = Async::Cron::InJob.new("5s", NOOP)
+  def test_after_job_delays_on_monotonic_clock
+    job = Async::Cron::AfterJob.new("5s", NOOP)
 
     refute job.due?(mono: 0.0, wall: nil)   # deadline pinned to 0 + 5
     refute job.due?(mono: 4.9, wall: nil)

@@ -6,7 +6,7 @@ module Async
   module Cron
     # Runs once after a delay, measured on the monotonic clock, then finishes.
     # The deadline is fixed lazily on the first poll the scheduler shows it.
-    class InJob < Job
+    class AfterJob < Job
       def initialize(dur, callable)
         super(callable)
         @delay = to_sec(dur)
