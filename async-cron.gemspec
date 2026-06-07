@@ -8,10 +8,11 @@ Gem::Specification.new do |spec|
   spec.authors = ["Nathan K"]
   spec.email = ["nathankidd@hey.com"]
 
-  spec.summary = "Async-native Ruby gem template"
+  spec.summary = "Async-native cron/interval scheduler for Ruby"
 
   spec.description = <<~DESC
-    Clone the repo and run bin/rename-gem async-<name> to scaffold an async-native gem.
+    A fibre-based scheduler built on the Socketry async ecosystem. Schedule work
+    with at/in/every/cron using fugit, bounded by an Async::Semaphore.
   DESC
 
   spec.homepage = "https://github.com/general-intelligence-systems/async-cron"
@@ -29,6 +30,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "async", "~> 2.0"
+  spec.add_dependency "fugit", "~> 1.12"
 
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "rake", "~> 13.0"
