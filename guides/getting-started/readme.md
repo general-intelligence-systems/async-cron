@@ -13,14 +13,14 @@ $ bundle add async-cron
 
 ## Usage
 
-Run the scheduler inside an `Async` reactor and declare jobs with the
-`at` / `in` / `every` / `cron` DSL:
+Declare jobs with the `at` / `in` / `every` / `cron` DSL, then drive the
+schedule from your own loop inside an `Async` reactor:
 
 ~~~ruby
 require "async/cron"
 
 Async do
-  Async::Cron.run do
+  Async::Cron.loop do
     every    "5s"               do puts "tick" end            # immediately, then every 5s
     schedule "30s"              do puts "warmup done" end     # once, after 30s
     at       "2026-01-01 09:00" do puts "happy new year" end  # once, at a time
@@ -29,7 +29,14 @@ Async do
 end
 ~~~
 
-`run` returns a {ruby Async::Cron::Scheduler}; call `#stop` to end the loop.
+`Async::Cron.run` is a single poll — it runs whatever is due right now — and the
+block builds a {ruby Async::Cron::Schedule}. `Async::Cron.loop` is just
+`loop { run; sleep }`, so you can equally own the loop yourself:
+
+~~~ruby
+schedule = Async::Cron::Schedule.new { every("5s") { puts "tick" } }
+loop { Async::Cron.run(schedule); sleep 1 }
+~~~
 
 ## Time Basis
 

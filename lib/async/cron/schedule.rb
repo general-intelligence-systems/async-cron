@@ -2,45 +2,23 @@
 
 module Async
   module Cron
-    # A fibre-based scheduler. Polls its jobs every `frequency` seconds inside an
-    # Async reactor, firing due jobs through an Async::Semaphore that bounds how
-    # many run concurrently.
+    # A set of jobs, built from the scheduling DSL. A Schedule just holds jobs
+    # (and a semaphore bounding how many fire at once). It has no notion of a
+    # clock or a loop -- Async::Cron.run iterates these jobs and runs the due
+    # ones; Async::Cron.loop does that on repeat.
     #
-    #   Async::Cron.run do
+    #   schedule = Async::Cron::Schedule.new do
     #     every "5s" do ... end
     #     cron  "0 9 * * *" do ... end
     #   end
-    #
-    # When called inside an existing reactor, #start returns immediately (the
-    # loop runs as a child task). At the top level, Async {} runs the reactor and
-    # blocks until the scheduler is stopped.
-    class Scheduler
-      def self.run(frequency: 0.3, max_concurrent: 28, &block)
-        new(frequency:, max_concurrent:).tap do |scheduler|
-          scheduler.instance_eval(&block) if block
-          scheduler.start
-        end
-      end
+    class Schedule
+      attr_reader :semaphore
 
-      def initialize(frequency: 0.3, max_concurrent: 28)
-        @frequency = frequency
+      def initialize(max_concurrent: 28, &block)
         @jobs = {}
         @semaphore = Async::Semaphore.new(max_concurrent)
-        @task = nil
+        instance_eval(&block) if block
       end
-
-      def start
-        @task = Async do |task|
-          loop do
-            tick
-            task.sleep(@frequency)
-          end
-        end
-      end
-
-      def stop = @task&.stop
-
-      def wait = @task&.wait
 
       def at(time, callable = nil, **opts, &block)   = add(AtJob.new(time, callable || block), opts)
       def in(dur, callable = nil, **opts, &block)    = add(InJob.new(dur, callable || block), opts)
@@ -59,21 +37,6 @@ module Async
       def jobs           = @jobs.values
 
       private
-
-      def tick
-        wall = EtOrbi::EoTime.now
-        mono = Async::Clock.now
-
-        # Snapshot: a triggered job may add/remove jobs mid-iteration.
-        @jobs.values.each do |job|
-          next unless job.due?(wall:, mono:)
-
-          @semaphore.async { job.trigger(wall) }
-          job.advance(wall:, mono:)
-        end
-
-        @jobs.reject! { |_, job| job.finished? }
-      end
 
       # "wednesday" -> cron, "5s" -> interval. Fugit decides, not us.
       def build_every(spec, callable)

@@ -13,14 +13,14 @@ gem "async-cron"
 
 ## Usage
 
-Run the scheduler inside an `Async` reactor and declare jobs with the
-`at` / `in` / `every` / `cron` DSL:
+Declare jobs with the `at` / `in` / `every` / `cron` DSL, then drive the
+schedule from your own loop inside an `Async` reactor:
 
 ```ruby
 require "async/cron"
 
 Async do
-  Async::Cron.run do
+  Async::Cron.loop do
     every    "5s"               do puts "tick" end            # immediately, then every 5s
     schedule "30s"              do puts "warmup done" end     # once, after 30s (-> in)
     at       "2026-01-01 09:00" do puts "happy new year" end  # once, at a time
@@ -29,10 +29,24 @@ Async do
 end
 ```
 
-`run` returns a `Scheduler`; `scheduler.stop` ends the loop, `scheduler.jobs`
-lists active jobs, and `scheduler.unschedule(id)` removes one. Concurrency is
-bounded by `max_concurrent:` (default 28) and the poll interval by `frequency:`
-(default 0.3s).
+`Async::Cron.run` is one poll: it checks every job against the current time and
+runs whatever is due. The block builds a `Schedule` — `Async::Cron.run(&block)`
+is just `Async::Cron.run(Schedule.new(&block))` — so you own the loop:
+
+```ruby
+Async do
+  Async::Cron::Schedule.new { every("5s") { puts "tick" } }.tap do |schedule|
+    loop do
+      Async::Cron.run(schedule)   # fire what's due, right now
+      sleep 1                     # cooperative inside the reactor
+    end
+  end
+end
+```
+
+`Async::Cron.loop(schedule, frequency: 0.3)` is exactly `loop { run; sleep }`.
+A `Schedule` exposes `#jobs` and `#unschedule(id)`; concurrency is bounded by
+`Schedule.new(max_concurrent: 28)`.
 
 **Time basis:** `in`/`every` use a monotonic clock (`Async::Clock`), so they are
 immune to NTP/DST jumps; `at`/`cron` use wall-clock time via
